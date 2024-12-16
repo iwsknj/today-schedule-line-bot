@@ -3,6 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2024-11-06"
 compatibility_flags = [ "nodejs_compat_v2" ]
 
+[triggers]
+crons = [ "0 22 * * *"]
+
+[observability.logs]
+enabled = true
+
 # [vars]
 # MY_VAR = "my-variable"
 
