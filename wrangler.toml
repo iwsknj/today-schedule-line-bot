@@ -1,4 +1,4 @@
-name = "line-notify"
+name = "today-schedule-line-bot"
 main = "src/index.ts"
 compatibility_date = "2024-11-06"
 compatibility_flags = [ "nodejs_compat_v2" ]
