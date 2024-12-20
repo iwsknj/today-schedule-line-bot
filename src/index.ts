@@ -46,18 +46,19 @@ const main = async (env: Env) => {
   const tomorrow = dayjs().tz("Asia/Tokyo").add(1, "day");
   const res = await calendar.events.list({
     calendarId: env.GOOGLE_CALENDER_ID,
-    timeMin: startOfDay.toISOString(),
-    timeMax: endOfDay.toISOString(),
+    timeMin: startOfDay.format(),
+    timeMax: endOfDay.format(),
     singleEvents: true,
     orderBy: "startTime",
     oauth_token: token,
   });
+
   // 今日の終日予定を取得
   const dayEvents = res.data.items
     ?.filter((item) => {
       if (item.start?.date && item.end?.date) {
-        const startDate = dayjs(item.start?.date);
-        const endDate = dayjs(item.end?.date);
+        const startDate = dayjs(item.start?.date).tz("Asia/Tokyo");
+        const endDate = dayjs(item.end?.date).tz("Asia/Tokyo");
         if (startDate.isSame(today, "day")) {
           return true;
         }
@@ -73,16 +74,20 @@ const main = async (env: Env) => {
       }
     })
     .map((item) => {
-      const startDate = dayjs(item.start?.date);
-      const endDate = dayjs(item.end?.date);
+      const startDate = dayjs(item.start?.date).tz("Asia/Tokyo");
+      const endDate = dayjs(item.end?.date).tz("Asia/Tokyo");
       const isOneDayEvent =
         startDate.isSame(today, "day") && endDate.isSame(tomorrow, "day");
+
+      if ((startDate.isSame, "day")) {
+        console.log(item.summary);
+      }
       return {
         title: item.summary,
         description: item.description,
         location: item.location,
-        start: dayjs(item.start?.date),
-        end: dayjs(item.end?.date),
+        start: startDate.format("MM/DD (ddd)"),
+        end: endDate.format("MM/DD (ddd)"),
         isOneDayEvent: isOneDayEvent,
       };
     });
@@ -98,47 +103,70 @@ const main = async (env: Env) => {
         if (startDate.isBefore(today, "day") && endDate.isAfter(today, "day")) {
           return true;
         }
+        if (startDate.isBefore(today, "day") && endDate.isAfter(today, "day")) {
+          return true;
+        }
+        if (startDate.isBefore(today, "day") && endDate.isSame(today, "day")) {
+          return true;
+        }
+        if (startDate.isSame(today, "day") && endDate.isAfter(today, "day")) {
+          return true;
+        }
       }
     })
     .map((item) => {
+      const startDate = dayjs(item.start?.dateTime).tz("Asia/Tokyo");
+      const endDate = dayjs(item.end?.dateTime).tz("Asia/Tokyo");
+      const isCrossingDay =
+        !startDate.isSame(today, "day") || !endDate.isSame(today, "day");
       return {
         title: item.summary,
         description: item.description,
         location: item.location,
-        start: dayjs(item.start?.dateTime),
-        end: dayjs(item.end?.dateTime),
+        start: startDate.format("HH:mm"),
+        end: endDate.format("HH:mm"),
+        startDate: startDate.format("MM/DD (ddd)"),
+        endDate: endDate.format("MM/DD (ddd)"),
+        isCrossingDay: isCrossingDay,
       };
     });
+
   // テキストメッセージを作成
   const textMessages = [
-    "今日 " + dayjs().format("YYYY/MM/DD (ddd)") + "の予定",
+    "今日 " + today.format("YYYY/MM/DD (ddd)") + "の予定",
     "",
     "--------------------------------------",
     "■終日予定",
-    ...(dayEvents ?? []).map((event) => {
+    ...(dayEvents ?? []).map((event, index) => {
       let eventText = "";
       if (event.isOneDayEvent) {
         eventText = `${event.title}`;
       } else {
-        eventText = `[${event.start.format("MM/DD (ddd)")} - ${event.end.format(
-          "MM/DD (ddd)"
-        )}] ${event.title}`;
+        eventText = `[${event.start} - ${event.end}]\n${event.title}`;
       }
       return (
+        (index + 1).toString() +
+        ". " +
         eventText +
         (event.description ? `\n詳細: ${event.description}` : "") +
-        (event.location ? `\n場所: ${event.location}` : "")
+        (event.location ? `\n場所: ${event.location}` : "") +
+        "\n"
       );
     }),
     "--------------------------------------",
     "■時間予定",
-    ...(dateEvents ?? []).map((event) => {
+    ...(dateEvents ?? []).map((event, index) => {
       return (
-        `[${event.start.format("HH:mm")} - ${event.end.format("HH:mm")}]` +
+        (index + 1).toString() +
+        ". " +
+        (event.isCrossingDay
+          ? `[${event.startDate} ${event.start} - ${event.endDate} ${event.end}]`
+          : `[${event.start} - ${event.end}]`) +
         "\n" +
         event.title +
         (event.description ? `\n詳細: ${event.description}` : "") +
-        (event.location ? `\n場所: ${event.location}` : "")
+        (event.location ? `\n場所: ${event.location}` : "") +
+        "\n"
       );
     }),
     "--------------------------------------",
@@ -157,7 +185,7 @@ const main = async (env: Env) => {
 };
 
 const scheduled: ExportedHandlerScheduledHandler<Env> = async (
-  event,
+  _event,
   env,
   ctx
 ) => {
