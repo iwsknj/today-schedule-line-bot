@@ -1,5 +1,6 @@
 import * as line from "@line/bot-sdk";
 import { google } from "googleapis";
+import type { calendar_v3 } from "googleapis/build/src/apis/calendar";
 import { Hono } from "hono";
 import GoogleAuth, { GoogleKey } from "cloudflare-workers-and-google-oauth";
 import dayjs from "dayjs";
@@ -57,20 +58,16 @@ const main = async (env: Env) => {
   const dayEvents = res.data.items
     ?.filter((item) => {
       if (item.start?.date && item.end?.date) {
-        const startDate = dayjs(item.start?.date).tz("Asia/Tokyo");
-        const endDate = dayjs(item.end?.date).tz("Asia/Tokyo");
-        if (startDate.isSame(today, "day")) {
-          return true;
-        }
-        if (startDate.isBefore(today, "day") && endDate.isAfter(today, "day")) {
-          return true;
-        }
-        if (
-          startDate.isSame(yesterday, "day") &&
-          endDate.isSame(today, "day")
-        ) {
-          return false;
-        }
+        const startDate = dayjs(item.start.date).tz("Asia/Tokyo");
+        const endDate = dayjs(item.end.date).tz("Asia/Tokyo");
+        return (
+          startDate.isSame(today, "day") ||
+          (startDate.isBefore(today, "day") &&
+            endDate.isAfter(today, "day") &&
+            !(
+              startDate.isSame(yesterday, "day") && endDate.isSame(today, "day")
+            ))
+        );
       }
     })
     .map((item) => {
@@ -78,10 +75,6 @@ const main = async (env: Env) => {
       const endDate = dayjs(item.end?.date).tz("Asia/Tokyo");
       const isOneDayEvent =
         startDate.isSame(today, "day") && endDate.isSame(tomorrow, "day");
-
-      if ((startDate.isSame, "day")) {
-        console.log(item.summary);
-      }
       return {
         title: item.summary,
         description: item.description,
@@ -91,27 +84,19 @@ const main = async (env: Env) => {
         isOneDayEvent: isOneDayEvent,
       };
     });
+
   // 今日の時間予定を取得
   const dateEvents = res.data.items
     ?.filter((item) => {
       if (item.start?.dateTime && item.end?.dateTime) {
         const startDate = dayjs(item.start.dateTime);
         const endDate = dayjs(item.end.dateTime);
-        if (startDate.isSame(today, "day")) {
-          return true;
-        }
-        if (startDate.isBefore(today, "day") && endDate.isAfter(today, "day")) {
-          return true;
-        }
-        if (startDate.isBefore(today, "day") && endDate.isAfter(today, "day")) {
-          return true;
-        }
-        if (startDate.isBefore(today, "day") && endDate.isSame(today, "day")) {
-          return true;
-        }
-        if (startDate.isSame(today, "day") && endDate.isAfter(today, "day")) {
-          return true;
-        }
+        return (
+          startDate.isSame(today, "day") ||
+          (startDate.isBefore(today, "day") && endDate.isAfter(today, "day")) ||
+          (startDate.isBefore(today, "day") && endDate.isSame(today, "day")) ||
+          (startDate.isSame(today, "day") && endDate.isAfter(today, "day"))
+        );
       }
     })
     .map((item) => {
@@ -171,6 +156,7 @@ const main = async (env: Env) => {
     }),
     "--------------------------------------",
   ];
+
   // LINEへ送信
   const client = new line.messagingApi.MessagingApiClient({
     channelAccessToken: env.LINE_CHANNEL_ACCESS_TOKEN,
