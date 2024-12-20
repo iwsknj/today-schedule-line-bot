@@ -1,6 +1,5 @@
 import * as line from "@line/bot-sdk";
 import { google } from "googleapis";
-import type { calendar_v3 } from "googleapis/build/src/apis/calendar";
 import { Hono } from "hono";
 import GoogleAuth, { GoogleKey } from "cloudflare-workers-and-google-oauth";
 import dayjs from "dayjs";
@@ -21,6 +20,8 @@ type Env = {
 
 const app = new Hono<{ Bindings: Env }>();
 
+const TIME_ZONE = "Asia/Tokyo";
+
 const main = async (env: Env) => {
   // カレンダーから予定を取得
   const scopes = ["https://www.googleapis.com/auth/calendar.readonly"];
@@ -29,22 +30,22 @@ const main = async (env: Env) => {
   const token = await oauth.getGoogleAuthToken();
   const calendar = google.calendar({ version: "v3" });
   const startOfDay = dayjs()
-    .tz("Asia/Tokyo")
+    .tz(TIME_ZONE)
     .subtract(15, "day")
     .startOf("day")
     .hour(0)
     .minute(0)
     .second(0);
   const endOfDay = dayjs()
-    .tz("Asia/Tokyo")
+    .tz(TIME_ZONE)
     .add(15, "day")
     .endOf("day")
     .hour(23)
     .minute(59)
     .second(59);
-  const today = dayjs().tz("Asia/Tokyo");
-  const yesterday = dayjs().tz("Asia/Tokyo").subtract(1, "day");
-  const tomorrow = dayjs().tz("Asia/Tokyo").add(1, "day");
+  const today = dayjs().tz(TIME_ZONE);
+  const yesterday = dayjs().tz(TIME_ZONE).subtract(1, "day");
+  const tomorrow = dayjs().tz(TIME_ZONE).add(1, "day");
   const res = await calendar.events.list({
     calendarId: env.GOOGLE_CALENDER_ID,
     timeMin: startOfDay.format(),
@@ -58,8 +59,8 @@ const main = async (env: Env) => {
   const dayEvents = res.data.items
     ?.filter((item) => {
       if (item.start?.date && item.end?.date) {
-        const startDate = dayjs(item.start.date).tz("Asia/Tokyo");
-        const endDate = dayjs(item.end.date).tz("Asia/Tokyo");
+        const startDate = dayjs(item.start.date).tz(TIME_ZONE);
+        const endDate = dayjs(item.end.date).tz(TIME_ZONE);
         return (
           startDate.isSame(today, "day") ||
           (startDate.isBefore(today, "day") &&
@@ -71,8 +72,8 @@ const main = async (env: Env) => {
       }
     })
     .map((item) => {
-      const startDate = dayjs(item.start?.date).tz("Asia/Tokyo");
-      const endDate = dayjs(item.end?.date).tz("Asia/Tokyo");
+      const startDate = dayjs(item.start?.date).tz(TIME_ZONE);
+      const endDate = dayjs(item.end?.date).tz(TIME_ZONE);
       const isOneDayEvent =
         startDate.isSame(today, "day") && endDate.isSame(tomorrow, "day");
       return {
@@ -100,8 +101,8 @@ const main = async (env: Env) => {
       }
     })
     .map((item) => {
-      const startDate = dayjs(item.start?.dateTime).tz("Asia/Tokyo");
-      const endDate = dayjs(item.end?.dateTime).tz("Asia/Tokyo");
+      const startDate = dayjs(item.start?.dateTime).tz(TIME_ZONE);
+      const endDate = dayjs(item.end?.dateTime).tz(TIME_ZONE);
       const isCrossingDay =
         !startDate.isSame(today, "day") || !endDate.isSame(today, "day");
       return {
