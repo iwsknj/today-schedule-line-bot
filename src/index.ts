@@ -90,8 +90,8 @@ const main = async (env: Env) => {
   const dateEvents = res.data.items
     ?.filter((item) => {
       if (item.start?.dateTime && item.end?.dateTime) {
-        const startDate = dayjs(item.start.dateTime);
-        const endDate = dayjs(item.end.dateTime);
+        const startDate = dayjs(item.start.dateTime).tz(TIME_ZONE);
+        const endDate = dayjs(item.end.dateTime).tz(TIME_ZONE);
         return (
           startDate.isSame(today, "day") ||
           (startDate.isBefore(today, "day") && endDate.isAfter(today, "day")) ||
@@ -123,6 +123,7 @@ const main = async (env: Env) => {
     "",
     "--------------------------------------",
     "■終日予定",
+    !dayEvents ? "なし" : "",
     ...(dayEvents ?? []).map((event, index) => {
       let eventText = "";
       if (event.isOneDayEvent) {
@@ -141,6 +142,7 @@ const main = async (env: Env) => {
     }),
     "--------------------------------------",
     "■時間予定",
+    !dateEvents ? "なし" : "",
     ...(dateEvents ?? []).map((event, index) => {
       return (
         (index + 1).toString() +
